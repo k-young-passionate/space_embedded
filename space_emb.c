@@ -155,17 +155,19 @@ int main() {
     struct ship{
         int x;
         int y;
-    } player;
-    int current_scene = 1;
-    int scene_change = 1;
-    int score = 0;
-    char scorestr[10];
+    } player;  // 플레이어 오브젝트
+    int current_scene = 1;  // 현재 상황
+    int scene_change = 1;  // 언제 쓰는거?
+    int score = 0;  // 점수
+    char scorestr[10];  // 언제 쓰는거?
+
     int fdmem = open("/dev/mem",O_RDWR);
     if (fdmem < 0){ printf("Error opening /dev/mem"); return -1;}
 
     void* gpio_ctr = mmap(0, 4096, PROT_READ + PROT_WRITE, MAP_SHARED, fdmem, GPIO_BASE);
     if(gpio_ctr == MAP_FAILED) {printf("mmap error"); return -1;}
     
+	/* gpio setup - buttons */
     set_gpio_input(gpio_ctr,4);
     set_gpio_pullup(gpio_ctr,4);
     set_gpio_input(gpio_ctr,27);
@@ -189,36 +191,43 @@ int main() {
         return -1;
     }
 
-    ssd1306_Init(i2c_fd);
+    ssd1306_Init(i2c_fd);  // i2c display initialization
 
-    //erasing
+    // initialization of buffer for display
     uint8_t* data = (uint8_t*)malloc(S_WIDTH*S_PAGES);
     for(int x = 0; x < S_WIDTH; x++){
         for(int y = 0; y < S_PAGES; y++){
             data[S_WIDTH*y + x] = 0x00;
         }
     }
-    update_full(i2c_fd,data);
-    free(data);
+    update_full(i2c_fd,data);  // display to black
+    free(data); // ???
 
+
+	// player의 현재 위치
     player.x = 64;
     player.y = 7;
-    uint8_t* shipdata = (uint8_t*)malloc(8*1);
+
+    uint8_t* shipdata = (uint8_t*)malloc(8*1);  // 적기의 정보
     for(int i = 0; i < 8; i++){
         shipdata[i] = ship[i];
     }
+
 
     write_str(i2c_fd, "SPACE EMBEDDERS", 20, 1);
     write_str(i2c_fd, "Press fire key",23,6);
     write_str(i2c_fd, "to start",39,7);
 
     while(1){
+		/* button 입력 받아오기 */
         get_gpio_input_value(gpio_ctr,4,&gpio_4_value);
         get_gpio_input_value(gpio_ctr,27,&gpio_27_value);
         get_gpio_input_value(gpio_ctr,12,&gpio_12_value);
-        if(current_scene == 1 && !gpio_12_value){
-            fire_switch_stat = 1;
-            current_scene = 2;
+        if(current_scene == 1 && !gpio_12_value){  // 처음 메뉴 화면
+            fire_switch_stat = 1;  // missile 버튼 on
+            current_scene = 2;  // 게임 화면 모드
+
+			/* 게임 화면으로 세팅하기 */
             uint8_t* data = (uint8_t*)malloc(S_WIDTH*S_PAGES);
             for(int x = 0; x < S_WIDTH; x++){
                 for(int y = 0; y < S_PAGES; y++){
@@ -227,27 +236,29 @@ int main() {
             }
             update_full(i2c_fd,data);
             free(data);
+
             update_area(i2c_fd,shipdata,player.x,player.y,8,1);
         }
-        if (current_scene == 2){
+        if (current_scene == 2){  // 실제 게임 화면
             sprintf(scorestr,"%d",score);
             write_str(i2c_fd, "SCORE ", 27, 0);
             write_str(i2c_fd, scorestr, 64, 0);
-            if(!(!gpio_4_value && !gpio_27_value)){
-                if(!gpio_4_value){
+            if(!(!gpio_4_value && !gpio_27_value)){  // 움직였다면
+                if(!gpio_4_value){  // 좌로 움직였다면
                     player.x--;
                     update_area(i2c_fd,shipdata,player.x,player.y,8,1);
                 }
-                if(!gpio_27_value){
+                if(!gpio_27_value){ // 우로 움직였다면
                     player.x++;
                     update_area(i2c_fd,shipdata,player.x,player.y,8,1);
                 }
             }
-            if(!gpio_12_value && fire_switch_stat == 0){
-                fire_switch_stat = 1;
+            if(!gpio_12_value && fire_switch_stat == 0){  // missile을 쐈고, 불능 상태라면 ???? 맞나
+                fire_switch_stat = 1;  // missile 버튼 on
             }
         }
-        if(gpio_12_value && fire_switch_stat == 1) fire_switch_stat = 0;
+        if(gpio_12_value && fire_switch_stat == 1) fire_switch_stat = 0;  // 미사일 못쏘는 상태
+		usleep(10000);  // 움직임의 순간적인 정지
     }
     free(shipdata);
     close(i2c_fd);
