@@ -181,98 +181,24 @@ void update_area_x_wrap(int i2c_fd,const uint8_t*data, int x,int y,int x_len,int
 	}
 }
 
-int i2c_fd;
-int player_alive = 1;
-uint8_t* screencleardata;
-
-struct enemies{
-    int x;
-    int y;
-    int alive; // 0 = dead, 1 = alive
-    uint8_t* data;
-} enm[32];
-
-struct ship{
-    int x;
-    int y;
-} player;
-
-void handler (int sig) {
-    int flag = 0; //used for make enemy move down
-    int dir = 1; //0 = left, 1 = right
-    while(1){
-        playerdead:
-        if(player_alive){
-            for(int i = 0; i < 32; i++){
-                if(!enm[i].alive) continue;//enemy is dead, not calculate
-                else{
-                    if(dir == 1 && enm[i].x == 120){ // enemy at right wall
-                        flag = 1;
-                        dir = 0;
-                        break;
-                    }
-                    else if(dir == 0 && enm[i].x == 0){ //enemy at left wall
-                        flag = 1;
-                        dir = 1;
-                        break;
-                    }
-                    if(enm[i].y == player.y && player.x - 7 < enm[i].x && enm[i].x < player.x + 9){
-                        player_alive = 0;
-                        goto playerdead;
-                    }// enemy collide to player
-                }
-            }
-            if(flag){ // move to down
-                for(int i = 0; i < 32; i++){
-                    if(!enm[i].alive) continue;
-                    else{
-                        enm[i].y ++;
-                    }
-                }
-            }
-            else if(dir == 1){ // move to right
-                for(int i = 0; i < 32; i++){
-                    if(!enm[i].alive) continue;
-                    else{
-                        enm[i].x +=2;
-                    }
-                }
-            }
-            else if(dir == 0){ // move to left
-                for(int i = 0; i < 32; i++){
-                    if(!enm[i].alive) continue;
-                    else{
-                        enm[i].x -=2;
-                    }
-                }
-            }
-            for(int i = 0; i < 32; i++){ //display enemies
-                if(!enm[i].alive) continue;
-                else{
-                    //first, clear screen for past enemy location
-                    if(flag){
-                        flag = 0;
-                        update_area_x_wrap(i2c_fd,screencleardata,enm[i].x,enm[i].y-1,enemy_WIDTH,enemy_HEIGHT);
-                    }
-                    else if(dir == 0){
-                        update_area_x_wrap(i2c_fd,screencleardata,enm[i].x+2,enm[i].y,enemy_WIDTH,enemy_HEIGHT);
-                    }
-                    else if(dir == 1){
-                        update_area_x_wrap(i2c_fd,screencleardata,enm[i].x-2,enm[i].y,enemy_WIDTH,enemy_HEIGHT);
-                    }
-                    //then display enemy
-                    update_area_x_wrap(i2c_fd,enm[i].data,enm[i].x,enm[i].y,enemy_WIDTH,enemy_HEIGHT);
-                }
-            }
-        }
-        else break;
-    }
-}
-
 int main() {
 
-    int current_scene = 1;  // 현재 상황
-    int scene_change = 1;  // used when situation change ex)main game->game over
+    int player_alive = 1;
+    int current_scene = 1;
+    uint8_t* screencleardata;
+
+    struct enemies{
+        int x;
+        int y;
+        int alive; // 0 = dead, 1 = alive
+        uint8_t* data;
+    } enm[32];
+
+    struct ship{
+        int x;
+        int y;
+    } player;
+
     int score = 0;  // 점수
     char scorestr[10];  // used to make score string
 
@@ -295,7 +221,7 @@ int main() {
     int gpio_12_value; // fire switch
     int fire_switch_stat = 0;
 
-    i2c_fd = open("/dev/i2c-1",O_RDWR);
+    int i2c_fd = open("/dev/i2c-1",O_RDWR);
     if(i2c_fd < 0){
         printf("err opening device\n");
         return -1;
@@ -319,7 +245,7 @@ int main() {
     free(data); // ???
 
 	// player의 현재 위치
-    player.x = 64;
+    player.x = 59;
     player.y = 7;
 
     write_str(i2c_fd, "SPACE EMBEDDERS", 20, 1);
@@ -357,9 +283,6 @@ int main() {
         enm[i].y = i/8 + 1;
     }
 
-    signal(SIGALRM, handler);
-    ualarm(20000,20000);
-
     while(1){
 		/* button 입력 받아오기 */
         get_gpio_input_value(gpio_ctr,4,&gpio_4_value);
@@ -385,11 +308,11 @@ int main() {
             if(!(!gpio_4_value && !gpio_27_value)){  // 움직였다면
                 if(!gpio_4_value){  // 좌로 움직였다면
                     if(player.x>0) player.x--;
-                    update_area_x_wrap(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+2,ship_HEIGHT);
+                    update_area(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+2,ship_HEIGHT);
                 }
                 if(!gpio_27_value){ // 우로 움직였다면
                     if(player.x < 120)player.x++;
-                    update_area_x_wrap(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+2,ship_HEIGHT);
+                    update_area(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+2,ship_HEIGHT);
                 }
             }
             if(!gpio_12_value && fire_switch_stat == 0){  // missile을 쐈고, 불능 상태라면 ???? 맞나
