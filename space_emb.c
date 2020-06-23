@@ -258,7 +258,7 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
  * @Author: Keonyoung Shim
  */
 
-int removetrace(int x, int y){
+int removetrace(int x, int y, int i2c_fd){
 	uint8_t *blank_buf =(uint8_t*)malloc(2*1);
 	blank_buf[0] = 0x00;
 	blank_buf[1] = 0x00;
@@ -295,14 +295,14 @@ int missile_launched(struct Missile * missiles, int missile_index, int x, int y)
  * @Author: Keonyoung Shim
  */
 
-void missiles_move(struct Missile * missiles, int moves){  // missile moves here
+void missiles_move(struct Missile * missiles, int moves, int i2c_fd){  // missile moves here
 	int i;
 	for(i=0; i<100; i++){
 		if(missiles[i].alive) // if the missile is valid one
 			missiles[i].y -= moves;  // the missile goes up 
 		if(missiles[i].y<=0){
 			missiles[i].alive = 0;  // it dies when it goes out of bound
-			removetrace(missiles[i].x, missiles[i].y/8);
+			removetrace(missiles[i].x, missiles[i].y/8, i2c_fd);
 			continue;
 		}
 	}
@@ -350,7 +350,7 @@ int isbombed(struct enemies * enemy, struct Missile * missiles, int i2c_fd, uint
 						enemy[i].alive = 0;
 						missiles[j].alive = 0;
 						update_area(i2c_fd, screencleardata, enemy[i].x, enemy[i].y, 12, 1);
-						removetrace(missiles[j].x, missiles[j].y/8);
+						removetrace(missiles[j].x, missiles[j].y/8, i2c_fd);
 						ret_val++;
 						break;
 					}
@@ -530,7 +530,7 @@ int main() {
                 missile_launched(missiles, missile_index, player.x+5, player.y * 8);
             }
 
-			missiles_move(missiles, 8);
+			missiles_move(missiles, 8, i2c_fd);
 			int gotscore = isbombed(enm, missiles, i2c_fd, screencleardata);
 			score += gotscore;
 
