@@ -197,6 +197,15 @@ struct ship{
     int y;
 } player;
 
+struct missiles{
+	int x;
+	int y;
+	int alive;  // 0 dead, 1 alive
+} missiles[100];
+
+int missile_new = 0;
+
+
 void handler (int sig) {
     int flag = 0; //used for make enemy move down
     int dir = 1; //0 = left, 1 = right
@@ -232,6 +241,33 @@ void handler (int sig) {
         }   
     }
 }
+
+
+void missiles_launched(int x, int y){  // missile launching handler
+	missiles[missile_new].x = x;
+	missiles[missile_new].y = y;
+	missiles[missile_new].alive = 1;
+	missile_new++;
+}
+
+void missiles_move(){  // missile moves here
+	int i;
+	for(i=0; i<100; i++){
+		if(missiles[i].alive) // if the missile is valid one
+			missiles[i].y--;  // the missile goes up 
+	}
+}
+
+
+// 미사일 부딪혔는지, 밖에 나갔는지 확인
+// 부딪혔으면 1, 정상이면 0 return
+int isbombed(int index){
+	// enemy crashed with a missile
+	// bomb the enemy
+	// and missile invalidated
+	return 1;
+}
+
 
 int main() {
 
