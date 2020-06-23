@@ -454,11 +454,11 @@ int main() {
             write_str(i2c_fd, scorestr, 70, 0); //display score
             if(!(!gpio_4_value && !gpio_27_value)){  // 움직였다면
                 if(!gpio_4_value){  // 좌로 움직였다면
-                    if(player.x>0) player.x-=2;
+                    if(player.x>=-4) player.x-=2;
                     update_area(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+8,1);
                 }
                 if(!gpio_27_value){ // 우로 움직였다면
-                    if(player.x < 120)player.x+=2;
+                    if(player.x <= 112)player.x+=2;
                     update_area(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+8,1);
                 }
             }
