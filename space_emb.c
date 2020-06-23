@@ -181,6 +181,106 @@ void update_area_x_wrap(int i2c_fd,const uint8_t*data, int x,int y,int x_len,int
 	}
 }
 
+/*
+ * @Name: pos_converter
+ * @Param: original pos
+ * @Return: converted position - page&byteposition (struct)
+ * @Description: original pos converts into page&bytes position 
+ * @Author: Keonyoung Shim
+ */
+
+int pos_converter(int y){
+	int page = y / 8;
+	int pos = y % 8;
+}
+
+/*
+ * @Name: missile_launched
+ * @Param: missiles array, missile index, launch position
+ * @Return: updated missile_index (int)
+ * @Description: adds a new missile from the player 
+ * @Author: Keonyoung Shim
+ */
+
+int missile_launched(struct Missile * missiles, int missile_index, int x, int y){  // missile launching handler
+	missiles[missile_index].x = x;
+	missiles[missile_index].y = y;  // position assignment
+	missiles[missile_index].alive = 1;  // set valid
+	missile_index++;
+	missile_index %= 100; // missile index arrangement (circular array)
+
+	return missile_index;
+}
+
+/*
+ * @Name: missiles_move
+ * @Param: missile array, the amount of moves
+ * @Return: void
+ * @Description: moves all missiles valid by the designated amount of moves
+ * @Author: Keonyoung Shim
+ */
+
+void missiles_move(struct Missile * missiles, int moves){  // missile moves here
+	int i;
+	for(i=0; i<100; i++){
+		if(missiles[i].alive) // if the missile is valid one
+			missiles[i].y -= moves;  // the missile goes up 
+	}
+}
+
+
+/*
+ * @Name: isbombed
+ * @Param: enemy position, missile position
+ * @Return: the number of bombed enemy (int)
+ * @Description: get distance from the enemy to the missile and check these have been crashed. 
+ * @Author: Keonyoung Shim
+ */
+
+int isbombed(struct enemies * enemy, struct Missile * missiles, int index){
+	int enemies_len = 32;
+	int missiles_len = 100;
+	int ret_val = 0;
+	int i, j;
+	for(i = 0; i < enemies_len; i++){
+		if(enemy[i].alive){
+			for(j = 0; j < missiles_len; j++){
+				if(isSamepos(enemy[i].x, enemy[i].y, missiles[j].x, missiles[j].y)){
+					enemy[i].alive = 0;
+					missiles[j].alive = 0;
+					ret_val++;
+					break;
+				}
+			}
+		}
+	}
+
+	return ret_val;
+}
+
+
+/*
+ * @Name: isSamepos
+ * @Param: enemy position, missile position
+ * @Return: 0 met, 1 unmet (int)
+ * @Description: get distance from the enemy to the missile and check these are met already. 
+ * @Author: Keonyoung Shim
+ */
+
+int isSamepos(int ex, int ey, int mx, int my){
+	int dist_x = ex - mx;
+	int dist_y = ey - my;
+	if(dist_x < 0 || dist_y < 0)
+		return 1;
+	if(dist_x > 8 || dist_y > 8)
+		return 1;
+	return 0;
+}
+
+
+
+
+
 int main() {
 
     int player_alive = 1;
@@ -199,6 +299,22 @@ int main() {
         int x;
         int y;
     } player;
+
+	struct missiles{
+		int x;
+		int y;
+		int alive;  // 0 dead, 1 alive
+	} missiles[100];
+
+	int missile_index = 0;  // missile index
+
+	/*
+	 * missiles 관련 함수
+	 * missile_launce: 미사일 발사하는 시점에서 추가해주면 됨
+	 * missiles_move: 미사일이 원하는 만큼 움직임, enemy랑 부딪히면 둘 다 없애줌
+	 * 아직 원하는 pos에 missle 그리는 것은 구현하지 않음
+	 * by 심건영
+	 */
 
     int score = 0;  // 점수
     char scorestr[10];  // used to make score string
