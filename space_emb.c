@@ -310,7 +310,7 @@ int isSamepos(int ex, int ey, int mx, int my){
 	int dist_x = mx - ex;
 	int dist_y = ey*8 - my;
 	int dist_y2 = ey*8 - my - 4;
-	if(dist_x >= 0 && dist_x < 8 && ((dist_y >= 0 && dist_y <8) ||(dist_y2 >=0 && dist_y2 <8) ))
+	if(dist_x >= 1 && dist_x <= 8 && ((dist_y >= 0 && dist_y <8) ||(dist_y2 >=0 && dist_y2 <8) ))
 		return 0;
 	else{
 		return 1;
