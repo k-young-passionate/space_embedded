@@ -313,11 +313,13 @@ int isbombed(struct enemies * enemy, struct Missile * missiles){
 	for(i = 0; i < enemies_len; i++){
 		if(enemy[i].alive){
 			for(j = 0; j < missiles_len; j++){
-				if(isSamepos(enemy[i].x, enemy[i].y, missiles[j].x, missiles[j].y)){
-					enemy[i].alive = 0;
-					missiles[j].alive = 0;
-					ret_val++;
-					break;
+				if(missiles[j].alive){
+					if(isSamepos(enemy[i].x, enemy[i].y, missiles[j].x, missiles[j].y)){
+						enemy[i].alive = 0;
+						missiles[j].alive = 0;
+						ret_val++;
+						break;
+					}
 				}
 			}
 		}
@@ -343,14 +345,6 @@ int main() {
 
 	int missile_index = 0;  // missile index
 
-	/*
-	 * missiles 관련 함수
-	 * missile_launce: 미사일 발사하는 시점에서 추가해주면 됨
-	 * missiles_move: 미사일이 원하는 만큼 움직임, enemy랑 부딪히면 둘 다 없애줌
-	 * 아직 원하는 pos에 missle 그리는 것은 구현하지 않음
-	 * by 심건영
-	 */
-    
     //when missile hits enemy, make score + 1000 then
     //use sprintf to update score.
     //and you have to clear screen that is displaying score numbers
@@ -502,7 +496,7 @@ int main() {
 					fire_switch_stat = 1;  // missile 버튼 on
 				}
 				else {
-					missile_launched(missiles, missile_index, player.x+3, player.y);	
+					missile_launched(missiles, missile_index, player.x+5, player.y * 8);	
 					fire_switch_stat = 0;
 				}
             }
