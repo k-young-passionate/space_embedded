@@ -48,6 +48,11 @@ struct Missile{
 	int alive;  // 0 dead, 1 alive
 };
 
+struct pagepos{
+	int page;
+	int y;
+};
+
 void set_gpio_input(void *gpio_ctr, int gpio_nr)
 {
     int reg_id = gpio_nr / 10;
@@ -175,30 +180,6 @@ void write_str(int i2c_fd, char* str, int x, int y) {
     }
 }
 
-void update_area_x_wrap(int i2c_fd,const uint8_t*data, int x,int y,int x_len,int y_len){
-	if(x +x_len<=S_WIDTH)
-		update_area(i2c_fd,data,x,y,x_len,y_len);
-	else {
-		int part1_len = S_WIDTH-x;
-		int part2_len = x_len -part1_len;
-		uint8_t *part1_buf =(uint8_t*)malloc(part1_len*y_len);
-		uint8_t *part2_buf =(uint8_t*)malloc(part2_len*y_len);
-		for(int x =0;x <part1_len;x++){
-			for(int y =0;y <y_len;y++){
-				part1_buf[part1_len*y+x]=data[x_len*y+x];
-			}
-		}
-		for(int x =0;x <part2_len;x++){
-			for(int y =0;y <y_len;y++){
-				part2_buf[part2_len*y+x]=data[x_len*y+part1_len+x];
-			}
-		}
-		update_area(i2c_fd,part1_buf,x,y,part1_len,y_len);
-		update_area(i2c_fd,part2_buf,0,y,part2_len,y_len);
-		free(part1_buf);
-		free(part2_buf);
-	}
-}
 
 /*
  * @Name: pos_converter
@@ -208,10 +189,56 @@ void update_area_x_wrap(int i2c_fd,const uint8_t*data, int x,int y,int x_len,int
  * @Author: Keonyoung Shim
  */
 
-int pos_converter(int y){
+struct pagepos pos_converter(int y){
 	int page = y / 8;
 	int pos = y % 8;
+	struct pagepos pgp;
+	pgp.page = page;
+	pgp.y = pos;
+	return pgp;
 }
+
+
+
+/*
+ * @Name: update_area_missiles
+ * @Param: i2c_fd, missiles pos
+ * @Return: void
+ * @Description: updates all missiles area 
+ * @Author: Keonyoung Shim
+ */
+
+void update_area_missiles(int i2c_fd, struct Missile * missiles){
+	for(int i=0; i<100; i++){
+		if(missiles[i].alive){  // missile valid 한 것만 처리
+			struct pagepos pgp = pos_converter(missiles[i].y);  // page 위치 찾기
+			if(pgp.y == 7){ // 아래에 걸칠 때
+				uint8_t *part1_buf =(uint8_t*)malloc(2*1);
+				uint8_t *part2_buf =(uint8_t*)malloc(2*1);
+
+				part1_buf[0] = 0x01;
+				part1_buf[1] = 0x01;
+				part2_buf[0] = 0x80;
+				part2_buf[1] = 0x80;
+
+				update_area(i2c_fd, part1_buf, missiles[i].x, pgp.page, 2, 1);
+				update_area(i2c_fd, part2_buf, missiles[i].x, pgp.page+1, 2, 1);
+
+				free(part1_buf);
+				free(part2_buf);
+			} else { // page 하나로 처리할 때
+				uint8_t *buf =(uint8_t*)malloc(2*1);
+				uint8_t base = 0xC0;
+				base >>= pgp.y;
+				buf[0] = base;
+				buf[1] = base;
+				update_area(i2c_fd, buf, missiles[i].x, pgp.page, 2, 1);
+				free(buf);
+			}
+		}
+	}
+}
+
 
 /*
  * @Name: missile_launched
@@ -244,6 +271,9 @@ void missiles_move(struct Missile * missiles, int moves){  // missile moves here
 	for(i=0; i<100; i++){
 		if(missiles[i].alive) // if the missile is valid one
 			missiles[i].y -= moves;  // the missile goes up 
+		if(missiles[i].y<=0)
+			missiles[i].alive = 0;  // it dies when it goes out of bound
+			continue;
 	}
 }
 
@@ -275,8 +305,8 @@ int isSamepos(int ex, int ey, int mx, int my){
  * @Author: Keonyoung Shim
  */
 
-int isbombed(struct enemies * enemy, struct Missile * missiles, int index){
-	int enemies_len = 32;
+int isbombed(struct enemies * enemy, struct Missile * missiles){
+	int enemies_len = 24;
 	int missiles_len = 100;
 	int ret_val = 0;
 	int i, j;
@@ -462,10 +492,21 @@ int main() {
                     update_area(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+8,1);
                 }
             }
-            if(!gpio_12_value && fire_switch_stat == 0){  // missile을 쐈고, 불능 상태라면 ???? 맞나
-                fire_switch_stat = 1;  // missile 버튼 on
+            if(!gpio_12_value){
+				if(fire_switch_stat == 0){  // missile을 쐈고, 불능 상태라면
+					fire_switch_stat = 1;  // missile 버튼 on
+				}
+				else {
+					missile_launched(missiles, missile_index, player.x+3, player.y);	
+					fire_switch_stat = 0;
+				}
             }
 
+			missiles_move(missiles, 2);
+			int gotscore = isbombed(enm, missiles);
+			score += gotscore;
+
+			update_area_missiles(i2c_fd, missiles);
             //enemy position check to move down or side
             for(int i = 0; i < 24; i++){
                 if(!enm[i].alive) continue;
