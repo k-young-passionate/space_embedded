@@ -497,14 +497,9 @@ int main() {
                     update_area(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+8,1);
                 }
             }
-            if(!gpio_12_value){
-				if(fire_switch_stat == 0){  // missile을 쐈고, 불능 상태라면
-					fire_switch_stat = 1;  // missile 버튼 on
-				}
-				else {
-					missile_launched(missiles, missile_index, player.x+5, player.y * 8);	
-					fire_switch_stat = 0;
-				}
+            if(!gpio_12_value && fire_switch_stat == 0){
+                fire_switch_stat = 1;
+                missile_launched(missiles, missile_index, player.x+5, player.y * 8);
             }
 
 			missiles_move(missiles, 2);
