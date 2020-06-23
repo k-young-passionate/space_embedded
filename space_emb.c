@@ -456,6 +456,11 @@ int main() {
         enm[i].y = (23-i)/8 + 1;
     }
 
+	// initialization of missiles
+	for(int i=0; i<100; i++){
+		missiles[i].alive = 0;
+	}
+
     while(1){
         int downflag = 0; // used for enemy moving downward
 		/* button 입력 받아오기 */
