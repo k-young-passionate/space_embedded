@@ -225,8 +225,9 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
 
 				update_area(i2c_fd, part1_buf, missiles[i].x, pgp.page, 2, 1);
 				update_area(i2c_fd, part2_buf, missiles[i].x, pgp.page+1, 2, 1);
-				update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+2, 2, 1);
-
+				if(pgp.page<6){
+					update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+2, 2, 1);
+				}
 				free(part1_buf);
 				free(part2_buf);
 			} else { // page 하나로 처리할 때
@@ -236,7 +237,9 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
 				buf[0] = base;
 				buf[1] = base;
 				update_area(i2c_fd, buf, missiles[i].x, pgp.page, 2, 1);
-				update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+1, 2, 1);
+				if(pgp.page<7){
+					update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+1, 2, 1);
+				}
 				free(buf);
 			}
 		}
@@ -319,7 +322,7 @@ int isbombed(struct enemies * enemy, struct Missile * missiles, int i2c_fd, uint
 		if(enemy[i].alive){
 			for(j = 0; j < missiles_len; j++){
 				if(missiles[j].alive){
-					if(isSamepos(enemy[i].x, enemy[i].y, missiles[j].x, missiles[j].y)){
+					if(isSamepos(enemy[i].x, enemy[i].y, missiles[j].x, missiles[j].y) == 0){
 						enemy[i].alive = 0;
 						missiles[j].alive = 0;
 						update_area(i2c_fd, screencleardata, enemy[i].x, enemy[i].y, 12, 1);
