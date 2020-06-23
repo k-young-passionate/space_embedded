@@ -300,9 +300,10 @@ void missiles_move(struct Missile * missiles, int moves){  // missile moves here
 int isSamepos(int ex, int ey, int mx, int my){
 	int dist_x = ex - mx;
 	int dist_y = ey*8 - my;
-	if(dist_x < 0 || dist_y < 0)
+	int dist_y2 = ey*8 - my - 4;
+	if(dist_x < 0 || (dist_y < 0 && dist_y2 < 0))
 		return 1;
-	if(dist_x > 8 || dist_y > 8)
+	if(dist_x > 8 || (dist_y > 8 && dist_y2 < 0))
 		return 1;
 	return 0;
 }
