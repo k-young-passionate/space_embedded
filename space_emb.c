@@ -268,12 +268,11 @@ void removetrace(int x, int y, int i2c_fd){
  */
 
 int missile_launched(struct Missile * missiles, int missile_index, int x, int y){  // missile launching handler
-	missiles[missile_index].x = x;
-	missiles[missile_index].y = y;  // position assignment
-	missiles[missile_index].alive = 1;  // set valid
-	missile_index++;
-	missile_index %= 100; // missile index arrangement (circular array)
-
+	if(missiles[0].alive==0){
+		missiles[missile_index].x = x;
+		missiles[missile_index].y = y;  // position assignment
+		missiles[missile_index].alive = 1;  // set valid
+	}
 	return missile_index;
 }
 
@@ -308,10 +307,10 @@ void missiles_move(struct Missile * missiles, int moves, int i2c_fd){  // missil
  */
 
 int isSamepos(int ex, int ey, int mx, int my){
-	int dist_x = ex - mx;
+	int dist_x = mx - ex;
 	int dist_y = ey*8 - my;
 	int dist_y2 = ey*8 - my - 4;
-	if(dist_x >= 2 && dist_x < 6 && ((dist_y >= 0 && dist_y <8) ||(dist_y2 >=0 && dist_y2 <8) ))
+	if(dist_x >= 0 && dist_x < 8 && ((dist_y >= 0 && dist_y <8) ||(dist_y2 >=0 && dist_y2 <8) ))
 		return 0;
 	else{
 		return 1;
@@ -329,7 +328,7 @@ int isSamepos(int ex, int ey, int mx, int my){
 
 int isbombed(struct enemies * enemy, struct Missile * missiles, int i2c_fd, uint8_t * screencleardata){
 	int enemies_len = 24;
-	int missiles_len = 100;
+	int missiles_len = 1;
 	int ret_val = 0;
 	int i, j;
 	for(i = 0; i < enemies_len; i++){
@@ -512,6 +511,8 @@ int main() {
 
 			missiles_move(missiles, 8, i2c_fd);
 			int gotscore = isbombed(enm, missiles, i2c_fd, screencleardata);
+			update_area_missiles(i2c_fd, missiles);
+
             if(!(!gpio_4_value && !gpio_27_value)){  // 움직였다면
                 if(!gpio_4_value){  // 좌로 움직였다면
                     if(player.x>=-4) player.x-=2;
@@ -525,7 +526,6 @@ int main() {
 
 			score += gotscore;
 
-			update_area_missiles(i2c_fd, missiles);
             //enemy position check to move down or side
             for(int i = 0; i < 24; i++){
                 if(!enm[i].alive) continue;
