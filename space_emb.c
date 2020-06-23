@@ -223,7 +223,7 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
 				part2_buf[1] = 0x01;
 
 				update_area(i2c_fd, part1_buf, missiles[i].x, pgp.page, 2, 1);
-				if(pgp.page<6){
+				if(pgp.page<7){
 					update_area(i2c_fd, part2_buf, missiles[i].x, pgp.page+1, 2, 1);
 				}
 				if(pgp.page<6){
@@ -238,7 +238,7 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
 				buf[0] = base;
 				buf[1] = base;
 				update_area(i2c_fd, buf, missiles[i].x, pgp.page, 2, 1);
-				if(pgp.page<6){
+				if(pgp.page<7){
 					update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+1, 2, 1);
 				}
 				free(buf);
@@ -502,6 +502,19 @@ int main() {
             update_area(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+8,1);
         }
         if (current_scene == 2){  // 실제 게임 화면
+            int winflag = 1;
+            for(int i = 0; i < 24; i++){
+                if(enm[i].alive){
+                    winflag = 0;
+                    break;
+                }
+            }
+            if(winflag){
+                score += 6000;
+                sprintf(scorestr,"%d",score);
+                current_scene = 4;
+                continue;
+            }
             write_str(i2c_fd, "Score ", 64-30, 0); // display score at upper screen
             write_str(i2c_fd, scorestr, 70, 0); //display score
             if(!gpio_12_value && fire_switch_stat == 0){
@@ -511,6 +524,7 @@ int main() {
 
 			missiles_move(missiles, 8, i2c_fd);
 			int gotscore = isbombed(enm, missiles, i2c_fd, screencleardata);
+            
 			update_area_missiles(i2c_fd, missiles);
 
             if(!(!gpio_4_value && !gpio_27_value)){  // 움직였다면
@@ -524,7 +538,16 @@ int main() {
                 }
             }
 
-			score += gotscore;
+			score += gotscore*1000;
+            if(!gotscore) {
+                sprintf(scorestr,"%d",score);
+                uint8_t* scorecleardata = (uint8_t*) malloc(30*enemy_HEIGHT);
+                for(int i = 0; i < 30; i++){
+                    scorecleardata[i] = 0x0;
+                }
+                update_area(i2c_fd,scorecleardata,70,0,30,1);
+                write_str(i2c_fd, scorestr, 70, 0);
+            }
 
             //enemy position check to move down or side
             for(int i = 0; i < 24; i++){
@@ -634,6 +657,57 @@ int main() {
                 //that's all. it is the main game screen.
             }
 
+        }
+        if(current_scene == 4){ // game over scene
+            if(!fullscreencleared){
+                fullscreencleared = 1; 
+                uint8_t* data = (uint8_t*)malloc(S_WIDTH*S_PAGES);
+                for(int x = 0; x < S_WIDTH; x++){
+                    for(int y = 0; y < S_PAGES; y++){
+                        data[S_WIDTH*y + x] = 0x00;
+                    }
+                }
+                update_full(i2c_fd,data);  // display to black
+                free(data); // ???
+            }
+            //game over phrases
+            write_str(i2c_fd, "YOU  WIN",64-24, 1);
+            write_str(i2c_fd, "YOUR SCORE", 64-30, 2);
+            write_str(i2c_fd, scorestr, 64-15,3);
+            write_str(i2c_fd, "PRESS FIRE", 64-30,5);
+            write_str(i2c_fd, "To Play again", 64-39,6);
+
+            //and when fire button is pressed
+            if(!gpio_12_value && fire_switch_stat == 0){
+                fullscreencleared = 0; // make this off
+                fire_switch_stat = 1;  // missile 버튼 on
+                current_scene = 2;  // 게임 화면 모드
+
+			    //clear screen to empty screen
+                uint8_t* data = (uint8_t*)malloc(S_WIDTH*S_PAGES);
+                for(int x = 0; x < S_WIDTH; x++){
+                    for(int y = 0; y < S_PAGES; y++){
+                        data[S_WIDTH*y + x] = 0x00;
+                    }
+                }
+                update_full(i2c_fd,data);
+                free(data);
+
+                //initialize position variables to first state
+                player.x = 59;
+                player.y = 7;
+                player_alive = 1;
+                for(int i = 0; i < 24; i++){
+                    enm[i].alive = 1;
+                    enm[i].x = (i%8)*12 + 18;
+                    enm[i].y = (23-i)/8 + 1;
+                }
+                score = 0;
+                sprintf(scorestr, "%d",score);
+
+                update_area(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+8,1);
+                //that's all. it is the main game screen.
+            }
         }
         //if fire button is not pressed, the button states restores to 0
         if(gpio_12_value && fire_switch_stat == 1) fire_switch_stat = 0;  // 미사일 못쏘는 상태
