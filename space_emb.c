@@ -214,17 +214,19 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
 	for(int i=0; i<100; i++){
 		if(missiles[i].alive){  // missile valid 한 것만 처리
 			struct pagepos pgp = pos_converter(missiles[i].y);  // page 위치 찾기
-			if(pgp.y == 7){ // 아래에 걸칠 때
+			if(pgp.y == 6){ // 아래에 걸칠 때
 				uint8_t *part1_buf =(uint8_t*)malloc(2*1);
 				uint8_t *part2_buf =(uint8_t*)malloc(2*1);
 
-				part1_buf[0] = 0x01;
-				part1_buf[1] = 0x01;
-				part2_buf[0] = 0x80;
-				part2_buf[1] = 0x80;
+				part1_buf[0] = 0x80;
+				part1_buf[1] = 0x80;
+				part2_buf[0] = 0x01;
+				part2_buf[1] = 0x01;
 
 				update_area(i2c_fd, part1_buf, missiles[i].x, pgp.page, 2, 1);
-				update_area(i2c_fd, part2_buf, missiles[i].x, pgp.page+1, 2, 1);
+				if(pgp.page<7){
+					update_area(i2c_fd, part2_buf, missiles[i].x, pgp.page+1, 2, 1);
+				}
 				if(pgp.page<6){
 					update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+2, 2, 1);
 				}
@@ -232,7 +234,7 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
 				free(part2_buf);
 			} else { // page 하나로 처리할 때
 				uint8_t *buf =(uint8_t*)malloc(2*1);
-				uint8_t base = 0xC0;
+				uint8_t base = 0x03;
 				base >>= pgp.y;
 				buf[0] = base;
 				buf[1] = base;
