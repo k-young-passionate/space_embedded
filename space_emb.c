@@ -320,7 +320,13 @@ int main() {
 	 * 아직 원하는 pos에 missle 그리는 것은 구현하지 않음
 	 * by 심건영
 	 */
-
+    
+    //when missile hits enemy, make score + 1000 then
+    //use sprintf to update score.
+    //and you have to clear screen that is displaying score numbers
+    //because past score will remain.
+    //each x(garo; fucking hangul andoe) size of number is 6.
+    //y is 8(1 page). so you need to allocate memory appropriately.
     int score = 0;  // 점수
     char scorestr[10];  // used to make score string
     sprintf(scorestr, "%d", score);
@@ -342,7 +348,7 @@ int main() {
     int gpio_4_value; // left switch
     int gpio_27_value; // right switch
     int gpio_12_value; // fire switch
-    int fire_switch_stat = 0;
+    int fire_switch_stat = 0; //fire switch status, used for bloking duplicate button input.
 
     int i2c_fd = open("/dev/i2c-1",O_RDWR);
     if(i2c_fd < 0){
@@ -371,14 +377,14 @@ int main() {
     player.x = 59;
     player.y = 7;
 
+    //first screen
     write_str(i2c_fd, "SPACE EMBEDDERS", 20, 1);
     write_str(i2c_fd, "Press fire key",23,6);
     write_str(i2c_fd, "to start",39,7);
 
-
+    //data for display spaceship
     uint8_t* shipdata = (uint8_t*) malloc((ship_WIDTH+8)*ship_HEIGHT);
-
-    for(int x = 0; x < 4; x++){
+    for(int x = 0; x < 4; x++){ // for clearing
         shipdata[0+x] = 0x0;
         shipdata[ship_WIDTH+4+x] = 0x0;
     }
@@ -386,27 +392,35 @@ int main() {
         shipdata[4+x] = ship[x];
     }
 
+    //data for clearing 8x8 screen. used for enemy moving downward
     screencleardata = (uint8_t*) malloc(enemy_WIDTH*enemy_HEIGHT);
     for(int i = 0; i < 8; i++){
         screencleardata[i] = 0x0;
     }
 
+    //data for display enemies
     for(int i = 0; i < 24; i++){
         enm[i].data = (uint8_t*) malloc((enemy_WIDTH+4)*enemy_HEIGHT);
-        if(i%2){
+        
+        if(i%2){ // enemy type 2
             for(int j = 0; j < 8; j++){
                 enm[i].data[j+2] = enemy2[j];
             }
         }
-        else{
+        else{ // enemy type 1
             for(int j = 0; j < 8; j++){
                 enm[i].data[j+2] = enemy1[j];
             }
         }
+
+        // for clearing
         enm[i].data[0] = 0x0;
         enm[i].data[1] = 0x0;
         enm[i].data[10] = 0x0;
         enm[i].data[11] = 0x0;
+
+        // if not alive, dont calculate any more.
+        // position
         enm[i].alive = 1;
         enm[i].x = (i%8)*12 + 18;
         enm[i].y = (23-i)/8 + 1;
@@ -418,11 +432,11 @@ int main() {
         get_gpio_input_value(gpio_ctr,4,&gpio_4_value);
         get_gpio_input_value(gpio_ctr,27,&gpio_27_value);
         get_gpio_input_value(gpio_ctr,12,&gpio_12_value);
-        if(current_scene == 1 && !gpio_12_value){  // 처음 메뉴 화면
+        if(current_scene == 1 && !gpio_12_value){  // 처음 메뉴 화면 and fire button pressed
             fire_switch_stat = 1;  // missile 버튼 on
             current_scene = 2;  // 게임 화면 모드
 
-			/* 게임 화면으로 세팅하기 */
+			//clear screen to empty screen
             uint8_t* data = (uint8_t*)malloc(S_WIDTH*S_PAGES);
             for(int x = 0; x < S_WIDTH; x++){
                 for(int y = 0; y < S_PAGES; y++){
@@ -432,71 +446,86 @@ int main() {
             update_full(i2c_fd,data);
             free(data);
 
-            update_area(i2c_fd,ship,player.x,player.y,8,1);
+            //display spaceship
+            update_area(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+8,1);
         }
         if (current_scene == 2){  // 실제 게임 화면
-            write_str(i2c_fd, "Score ", 64-30, 0);
-            write_str(i2c_fd, scorestr, 70, 0);
+            write_str(i2c_fd, "Score ", 64-30, 0); // display score at upper screen
+            write_str(i2c_fd, scorestr, 70, 0); //display score
             if(!(!gpio_4_value && !gpio_27_value)){  // 움직였다면
                 if(!gpio_4_value){  // 좌로 움직였다면
-                    if(player.x>0) player.x-=4;
+                    if(player.x>0) player.x-=2;
                     update_area(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+8,1);
                 }
                 if(!gpio_27_value){ // 우로 움직였다면
-                    if(player.x < 120)player.x+=4;
+                    if(player.x < 120)player.x+=2;
                     update_area(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+8,1);
                 }
             }
             if(!gpio_12_value && fire_switch_stat == 0){  // missile을 쐈고, 불능 상태라면 ???? 맞나
                 fire_switch_stat = 1;  // missile 버튼 on
             }
+
             //enemy position check to move down or side
             for(int i = 0; i < 24; i++){
                 if(!enm[i].alive) continue;
-                if(dir == 1 && enm[i].x >= 116){
+                if(dir == 1 && enm[i].x >= 116){ // one of enemies is at right wall
                     downflag = 1;
                 }
-                else if(dir == 0 && enm[i].x <= 0){
+                else if(dir == 0 && enm[i].x <= 0){ // one of enemies is at left wall
                     downflag = 1;
                 }
             }
-            if(downflag){
-                if(dir == 0) dir = 1;
-                else if(dir == 1) dir = 0;
+
+            if(downflag){ // when one of enemies is at wall
+                if(dir == 0) dir = 1; //make direction reverse
+                else if(dir == 1) dir = 0; //make direction reverse
                 for(int i = 0; i < 24; i++){
-                    if(!enm[i].alive) continue;
+                    if(!enm[i].alive) continue; //if this enemy is dead, don't care
+                    //first, clear screen of this enemy's position
                     update_area(i2c_fd,screencleardata,enm[i].x, enm[i].y,12,1);
+                    //then, make y position + 1
                     enm[i].y++;
-                    if(enm[i].y == 7) player_alive = 0;
+                    if(enm[i].y == 7) player_alive = 0; //player is dead
                 }
                 for(int i = 0; i < 24; i++){
                     if(!enm[i].alive) continue;
+                    //display enemies at new position
                     update_area(i2c_fd,enm[i].data,enm[i].x, enm[i].y,12,1);
                 }
-                if(!player_alive){
+                if(!player_alive){ // if enemies at bottom, display it then game over.
+                    //to game over scene
                     current_scene = 3;
                     continue;
                 }
             }
-            else if(dir == 1){
+            else if(dir == 1){ //if enemies are moving to right
                 for(int i = 0; i < 24; i++){
-                    if(!enm[i].alive) continue;
-                    if(i%8==0)update_area(i2c_fd,screencleardata,enm[i].x, enm[i].y,8,1);
+                    if(!enm[i].alive) continue;//if this enemy is dead, don't care
+                    //x position + 1
                     enm[i].x++;
+                    //display this enemy
                     update_area(i2c_fd,enm[i].data,enm[i].x, enm[i].y,12,1);
                 }
             }
-            else if(dir == 0){
+            else if(dir == 0){ //if enemies are moving to left
                 for(int i = 0; i < 24; i++){
-                    if(!enm[i].alive) continue;
+                    if(!enm[i].alive) continue;//if this enemy is dead, don't care
+                    //x position -1
                     enm[i].x--;
+                    //display this enemy
                     update_area(i2c_fd,enm[i].data,enm[i].x, enm[i].y,12,1);
                 }
             }
         }
-        if(current_scene == 3){
+        if(current_scene == 3){ // game over scene
             if(!fullscreencleared){
-                fullscreencleared = 1;
+                //first, when this time is first time to make game over scene,
+                //it is necessary to make empty screen first.
+                //but it doesn't have to when maintaining this scene.
+                //because the screen will blink.
+                //so, make empty screen when it is first time to make game over scene.
+                fullscreencleared = 1; // and this is the indicator.
                 uint8_t* data = (uint8_t*)malloc(S_WIDTH*S_PAGES);
                 for(int x = 0; x < S_WIDTH; x++){
                     for(int y = 0; y < S_PAGES; y++){
@@ -506,17 +535,20 @@ int main() {
                 update_full(i2c_fd,data);  // display to black
                 free(data); // ???
             }
-            write_str(i2c_fd, "YOUR SCORE", 64-30, 1);
-            write_str(i2c_fd, scorestr, 64-15,2);
-            write_str(i2c_fd, "PRESS FIRE", 64-30,4);
-            write_str(i2c_fd, "To Play again", 64-39,5);
+            //game over phrases
+            write_str(i2c_fd, "GAME  OVER",64-30, 1);
+            write_str(i2c_fd, "YOUR SCORE", 64-30, 2);
+            write_str(i2c_fd, scorestr, 64-15,3);
+            write_str(i2c_fd, "PRESS FIRE", 64-30,5);
+            write_str(i2c_fd, "To Play again", 64-39,6);
 
+            //and when fire button is pressed
             if(!gpio_12_value && fire_switch_stat == 0){
-                fullscreencleared = 0;
+                fullscreencleared = 0; // make this off
                 fire_switch_stat = 1;  // missile 버튼 on
                 current_scene = 2;  // 게임 화면 모드
 
-			    /* 게임 화면으로 세팅하기 */
+			    //clear screen to empty screen
                 uint8_t* data = (uint8_t*)malloc(S_WIDTH*S_PAGES);
                 for(int x = 0; x < S_WIDTH; x++){
                     for(int y = 0; y < S_PAGES; y++){
@@ -538,10 +570,12 @@ int main() {
                 score = 0;
                 sprintf(scorestr, "%d",score);
 
-                update_area(i2c_fd,ship,player.x,player.y,8,1);
+                update_area(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+8,1);
+                //that's all. it is the main game screen.
             }
 
         }
+        //if fire button is not pressed, the button states restores to 0
         if(gpio_12_value && fire_switch_stat == 1) fire_switch_stat = 0;  // 미사일 못쏘는 상태
     }
 
