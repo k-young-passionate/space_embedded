@@ -29,6 +29,28 @@
 #define enemy_MOVE 2
 #define NUM_FRAMES (S_WIDTH/en)
 
+
+struct enemies{
+	int x;
+	int y;
+	int alive; // 0 = dead, 1 = alive
+	uint8_t* data;
+};
+
+struct ship{
+	int x;
+	int y;
+};
+
+struct Missile{
+	int x;
+	int y;
+	int alive;  // 0 dead, 1 alive
+};
+
+
+
+
 void set_gpio_input(void *gpio_ctr, int gpio_nr)
 {
     int reg_id = gpio_nr / 10;
@@ -230,6 +252,25 @@ void missiles_move(struct Missile * missiles, int moves){  // missile moves here
 
 
 /*
+ * @Name: isSamepos
+ * @Param: enemy position, missile position
+ * @Return: 0 met, 1 unmet (int)
+ * @Description: get distance from the enemy to the missile and check these are met already. 
+ * @Author: Keonyoung Shim
+ */
+
+int isSamepos(int ex, int ey, int mx, int my){
+	int dist_x = ex - mx;
+	int dist_y = ey - my;
+	if(dist_x < 0 || dist_y < 0)
+		return 1;
+	if(dist_x > 8 || dist_y > 8)
+		return 1;
+	return 0;
+}
+
+
+/*
  * @Name: isbombed
  * @Param: enemy position, missile position
  * @Return: the number of bombed enemy (int)
@@ -259,28 +300,6 @@ int isbombed(struct enemies * enemy, struct Missile * missiles, int index){
 }
 
 
-/*
- * @Name: isSamepos
- * @Param: enemy position, missile position
- * @Return: 0 met, 1 unmet (int)
- * @Description: get distance from the enemy to the missile and check these are met already. 
- * @Author: Keonyoung Shim
- */
-
-int isSamepos(int ex, int ey, int mx, int my){
-	int dist_x = ex - mx;
-	int dist_y = ey - my;
-	if(dist_x < 0 || dist_y < 0)
-		return 1;
-	if(dist_x > 8 || dist_y > 8)
-		return 1;
-	return 0;
-}
-
-
-
-
-
 int main() {
 
     int player_alive = 1;
@@ -288,23 +307,11 @@ int main() {
     int dir = 1; // enemy moving direction, 0 = left, 1 = right
     uint8_t* screencleardata;
 
-    struct enemies{
-        int x;
-        int y;
-        int alive; // 0 = dead, 1 = alive
-        uint8_t* data;
-    } enm[24];
+    struct enemies enm[24];
 
-    struct ship{
-        int x;
-        int y;
-    } player;
+    struct ship player;
 
-	struct missiles{
-		int x;
-		int y;
-		int alive;  // 0 dead, 1 alive
-	} missiles[100];
+	struct Missile missiles[100];
 
 	int missile_index = 0;  // missile index
 
