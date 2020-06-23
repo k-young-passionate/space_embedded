@@ -210,7 +210,8 @@ struct pagepos pos_converter(int y){
 
 void update_area_missiles(int i2c_fd, struct Missile * missiles){
 	uint8_t *blank_buf =(uint8_t*)malloc(2*1);
-	blank_buf = 0x00;
+	blank_buf[0] = 0x00;
+	blank_buf[1] = 0x00;
 	for(int i=0; i<100; i++){
 		if(missiles[i].alive){  // missile valid 한 것만 처리
 			struct pagepos pgp = pos_converter(missiles[i].y);  // page 위치 찾기
@@ -228,7 +229,7 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
 					update_area(i2c_fd, part2_buf, missiles[i].x, pgp.page+1, 2, 1);
 				}
 				if(pgp.page<6){
-					update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+2, 1, 1);
+					update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+2, 2, 1);
 				}
 				free(part1_buf);
 				free(part2_buf);
@@ -240,7 +241,7 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
 				buf[1] = base;
 				update_area(i2c_fd, buf, missiles[i].x, pgp.page, 2, 1);
 				if(pgp.page<7){
-					update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+1, 1, 1);
+					update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+1, 2, 1);
 				}
 				free(buf);
 			}
