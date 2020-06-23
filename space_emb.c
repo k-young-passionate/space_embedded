@@ -235,7 +235,7 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
 			} else { // page 하나로 처리할 때
 				uint8_t *buf =(uint8_t*)malloc(2*1);
 				uint8_t base = 0x03;
-				base >>= pgp.y;
+				base <<= pgp.y;
 				buf[0] = base;
 				buf[1] = base;
 				update_area(i2c_fd, buf, missiles[i].x, pgp.page, 2, 1);
@@ -507,7 +507,7 @@ int main() {
                 missile_launched(missiles, missile_index, player.x+5, player.y * 8);
             }
 
-			missiles_move(missiles, 2);
+			missiles_move(missiles, 8);
 			int gotscore = isbombed(enm, missiles, i2c_fd, screencleardata);
 			score += gotscore;
 
