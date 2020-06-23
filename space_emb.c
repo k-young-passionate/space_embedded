@@ -29,6 +29,28 @@
 #define enemy_MOVE 2
 #define NUM_FRAMES (S_WIDTH/en)
 
+
+struct enemies{
+	int x;
+	int y;
+	int alive; // 0 = dead, 1 = alive
+	uint8_t* data;
+};
+
+struct ship{
+	int x;
+	int y;
+};
+
+struct Missile{
+	int x;
+	int y;
+	int alive;  // 0 dead, 1 alive
+};
+
+
+
+
 void set_gpio_input(void *gpio_ctr, int gpio_nr)
 {
     int reg_id = gpio_nr / 10;
@@ -181,17 +203,11 @@ void update_area_x_wrap(int i2c_fd,const uint8_t*data, int x,int y,int x_len,int
 	}
 }
 
-
 /*
-
-*/  // missile related code -> main 에 삽입 예정
-
-
-/*
- * @Name: isBombed
- * @Param: enemy position, missile position
- * @Return: the number of bombed enemy (int)
- * @Description: get distance from the enemy to the missile and check these have been crashed. 
+ * @Name: pos_converter
+ * @Param: original pos
+ * @Return: converted position - page&byteposition (struct)
+ * @Description: original pos converts into page&bytes position 
  * @Author: Keonyoung Shim
  */
 
@@ -210,10 +226,10 @@ int pos_converter(int y){
 
 int missile_launched(struct Missile * missiles, int missile_index, int x, int y){  // missile launching handler
 	missiles[missile_index].x = x;
-	missiles[missile_index].y = y;
-	missiles[missile_index].alive = 1;
+	missiles[missile_index].y = y;  // position assignment
+	missiles[missile_index].alive = 1;  // set valid
 	missile_index++;
-	missile_index %= 100;
+	missile_index %= 100; // missile index arrangement (circular array)
 
 	return missile_index;
 }
@@ -232,6 +248,25 @@ void missiles_move(struct Missile * missiles, int moves){  // missile moves here
 		if(missiles[i].alive) // if the missile is valid one
 			missiles[i].y -= moves;  // the missile goes up 
 	}
+}
+
+
+/*
+ * @Name: isSamepos
+ * @Param: enemy position, missile position
+ * @Return: 0 met, 1 unmet (int)
+ * @Description: get distance from the enemy to the missile and check these are met already. 
+ * @Author: Keonyoung Shim
+ */
+
+int isSamepos(int ex, int ey, int mx, int my){
+	int dist_x = ex - mx;
+	int dist_y = ey - my;
+	if(dist_x < 0 || dist_y < 0)
+		return 1;
+	if(dist_x > 8 || dist_y > 8)
+		return 1;
+	return 0;
 }
 
 
@@ -265,56 +300,32 @@ int isbombed(struct enemies * enemy, struct Missile * missiles, int index){
 }
 
 
-/*
- * @Name: isSamepos
- * @Param: enemy position, missile position
- * @Return: 0 met, 1 unmet (int)
- * @Description: get distance from the enemy to the missile and check these are met already. 
- * @Author: Keonyoung Shim
- */
-
-int isSamepos(int ex, int ey, int mx, int my){
-	int dist_x = ex - mx;
-	int dist_y = ey - my;
-	if(dist_x < 0 || dist_y < 0)
-		return 1;
-	if(dist_x > 8 || dist_y > 8)
-		return 1;
-	return 0;
-}
-
 int main() {
 
     int player_alive = 1;
     int current_scene = 1;
+    int dir = 1; // enemy moving direction, 0 = left, 1 = right
+    uint8_t* screencleardata;
 
-    struct enemies{
-        int x;
-        int y;
-        int alive; // 0 = dead, 1 = alive
-        uint8_t* data;
-    } enm[24];
+    struct enemies enm[24];
 
-    struct ship{
-        int x;
-        int y;
-    } player;
+    struct ship player;
 
-    struct missiles{
-        int x;
-	      int y;
-	      int alive;  // 0 dead, 1 alive
-    } missiles[100];
+	struct Missile missiles[100];
 
-    int missile_index = 0;  // missile array index
-  /*
-  *  milssile 함수 이용 시
-  *  missile_launched : missile을 발사해 시작 포지션에 넣어줌
-  *  missiles_move : 발사 된 missile을 이동시켜주고, 이동한 missile의 enemy 격추 시 handling 해줌
-  *  두 개만 이용하면 됨
-  */
+	int missile_index = 0;  // missile index
+
+	/*
+	 * missiles 관련 함수
+	 * missile_launce: 미사일 발사하는 시점에서 추가해주면 됨
+	 * missiles_move: 미사일이 원하는 만큼 움직임, enemy랑 부딪히면 둘 다 없애줌
+	 * 아직 원하는 pos에 missle 그리는 것은 구현하지 않음
+	 * by 심건영
+	 */
+
     int score = 0;  // 점수
     char scorestr[10];  // used to make score string
+    sprintf(scorestr, "%d", score);
 
     int fdmem = open("/dev/mem",O_RDWR);
     if (fdmem < 0){ printf("Error opening /dev/mem"); return -1;}
@@ -426,6 +437,8 @@ int main() {
             update_area(i2c_fd,ship,player.x,player.y,8,1);
         }
         if (current_scene == 2){  // 실제 게임 화면
+            write_str(i2c_fd, "SPACE ", 64-36, 1);
+            write_str(i2c_fd, scorestr, 64, 1);
             if(!(!gpio_4_value && !gpio_27_value)){  // 움직였다면
                 if(!gpio_4_value){  // 좌로 움직였다면
                     if(player.x>0) player.x-=4;
@@ -455,9 +468,14 @@ int main() {
                 for(int i = 0; i < 24; i++){
                     update_area(i2c_fd,screencleardata,enm[i].x, enm[i].y,12,1);
                     enm[i].y++;
+                    if(enm[i].y == 7) player_alive = 0;
                 }
                 for(int i = 0; i < 24; i++){
                     update_area(i2c_fd,enm[i].data,enm[i].x, enm[i].y,12,1);
+                }
+                if(!player_alive){
+                    current_scene = 3;
+                    continue;
                 }
             }
             else if(dir == 1){
@@ -473,6 +491,9 @@ int main() {
                     update_area(i2c_fd,enm[i].data,enm[i].x, enm[i].y,12,1);
                 }
             }
+        }
+        if(current_scene == 3){
+            
         }
         if(gpio_12_value && fire_switch_stat == 1) fire_switch_stat = 0;  // 미사일 못쏘는 상태
     }
