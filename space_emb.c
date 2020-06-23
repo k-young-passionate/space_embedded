@@ -7,8 +7,12 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <linux/i2c-dev.h>
+#include <signal.h>
 #include "fonts/renew_font.h"
 #include "ship.h"
+#include "enemy1.h"
+#include "enemy2.h"
+#include "bullet.h"
 
 #define PERIPHERAL_BASE 0x3F000000UL
 #define GPIO_BASE (PERIPHERAL_BASE + 0x200000)
@@ -188,23 +192,49 @@ struct enemies{
     uint8_t* data;
 } enm[32];
 
+struct ship{
+    int x;
+    int y;
+} player;
+
 void handler (int sig) {
-    int flag = 1; //used for make enemy move down
+    int flag = 0; //used for make enemy move down
     int dir = 1; //0 = left, 1 = right
     if(player_alive){
         while(1){
             for(int i = 0; i < 32; i++){
+                if(!enm[i].alive) continue;
+                else{
+                    if(dir == 1 && enm[i].x == 120){
+                        flag = 1;
+                        dir = 0;
+                        break;
+                    }
+                    else if(dir == 0 && enm[i].x == 0){
+                        flag = 1;
+                        dir = 1;
+                        break;
+                    }
+                    else{
 
+                    }
+                }
+            }
+            if(flag){
+                flag = 0;
+                for(int i = 0; i < 32; i++){
+                    if(!enm[i].alive) continue;
+                    else{
+
+                    }
+                }
             }
         }   
     }
 }
 
 int main() {
-    struct ship{
-        int x;
-        int y;
-    } player;  // 플레이어 오브젝트
+
     int current_scene = 1;  // 현재 상황
     int scene_change = 1;  // used when situation change ex)main game->game over
     int score = 0;  // 점수
@@ -269,11 +299,15 @@ int main() {
         shipdata[1+x] = ship[x];
     }
 
+    signal(SIGALRM, handler);
+    ualarm(20000,20000);
+
     while(1){
 		/* button 입력 받아오기 */
         get_gpio_input_value(gpio_ctr,4,&gpio_4_value);
         get_gpio_input_value(gpio_ctr,27,&gpio_27_value);
         get_gpio_input_value(gpio_ctr,12,&gpio_12_value);
+        if(!gpio_4_value && !gpio_27_value && !gpio_12_value) break;
         if(current_scene == 1 && !gpio_12_value){  // 처음 메뉴 화면
             fire_switch_stat = 1;  // missile 버튼 on
             current_scene = 2;  // 게임 화면 모드
@@ -294,11 +328,11 @@ int main() {
             if(!(!gpio_4_value && !gpio_27_value)){  // 움직였다면
                 if(!gpio_4_value){  // 좌로 움직였다면
                     if(player.x>0) player.x--;
-                    update_area_x_wrap(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+ship_MOVE+ship_MOVE,ship_HEIGHT);
+                    update_area_x_wrap(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+2,ship_HEIGHT);
                 }
                 if(!gpio_27_value){ // 우로 움직였다면
                     if(player.x < 120)player.x++;
-                    update_area_x_wrap(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+ship_MOVE+ship_MOVE,ship_HEIGHT);
+                    update_area_x_wrap(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+2,ship_HEIGHT);
                 }
             }
             if(!gpio_12_value && fire_switch_stat == 0){  // missile을 쐈고, 불능 상태라면 ???? 맞나
@@ -308,6 +342,8 @@ int main() {
         if(gpio_12_value && fire_switch_stat == 1) fire_switch_stat = 0;  // 미사일 못쏘는 상태
 		usleep(1000);  // 움직임의 순간적인 정지
     }
+
+    free(shipdata);
     close(i2c_fd);
     return 0;
 }
