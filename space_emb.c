@@ -292,7 +292,7 @@ void missiles_move(struct Missile * missiles, int moves, int i2c_fd){  // missil
 			missiles[i].y -= moves;  // the missile goes up 
 		if(missiles[i].y<=0){
 			missiles[i].alive = 0;  // it dies when it goes out of bound
-			removetrace(missiles[i].x, missiles[i].y/8, i2c_fd);
+			removetrace(missiles[i].x, (missiles[i].y+moves)/8, i2c_fd);
 			continue;
 		}
 	}
@@ -311,7 +311,7 @@ int isSamepos(int ex, int ey, int mx, int my){
 	int dist_x = ex - mx;
 	int dist_y = ey*8 - my;
 	int dist_y2 = ey*8 - my - 4;
-	if(dist_x >= 0 && dist_x < 8 && ((dist_y >= 0 && dist_y <8) ||(dist_y2 >=0 && dist_y2 <8) ))
+	if(dist_x >= 2 && dist_x < 6 && ((dist_y >= 0 && dist_y <8) ||(dist_y2 >=0 && dist_y2 <8) ))
 		return 0;
 	else{
 		return 1;
@@ -340,7 +340,7 @@ int isbombed(struct enemies * enemy, struct Missile * missiles, int i2c_fd, uint
 						enemy[i].alive = 0;
 						missiles[j].alive = 0;
 						update_area(i2c_fd, screencleardata, enemy[i].x, enemy[i].y, 12, 1);
-						removetrace(missiles[j].x, missiles[j].y/8, i2c_fd);
+						removetrace(missiles[j].x, missiles[j].y/8+1, i2c_fd);
 						ret_val++;
 						break;
 					}
