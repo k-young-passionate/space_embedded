@@ -199,6 +199,7 @@ struct pagepos pos_converter(int y){
 }
 
 
+uint8_t blank_buf[2] = {0x00, 0x00};
 
 /*
  * @Name: update_area_missiles
@@ -209,9 +210,6 @@ struct pagepos pos_converter(int y){
  */
 
 void update_area_missiles(int i2c_fd, struct Missile * missiles){
-	uint8_t *blank_buf =(uint8_t*)malloc(2*1);
-	blank_buf[0] = 0x00;
-	blank_buf[1] = 0x00;
 	for(int i=0; i<100; i++){
 		if(missiles[i].alive){  // missile valid 한 것만 처리
 			struct pagepos pgp = pos_converter(missiles[i].y);  // page 위치 찾기
@@ -247,7 +245,6 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
 			}
 		}
 	}
-	free(blank_buf);
 }
 
 /*
@@ -259,13 +256,7 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
  */
 
 void removetrace(int x, int y, int i2c_fd){
-	uint8_t *blank_buf =(uint8_t*)malloc(2*1);
-	blank_buf[0] = 0x00;
-	blank_buf[1] = 0x00;
-
 	update_area(i2c_fd, blank_buf, x, y, 2, 1);
-
-	free(blank_buf);
 }
 
 /*
@@ -296,7 +287,7 @@ int missile_launched(struct Missile * missiles, int missile_index, int x, int y)
 
 void missiles_move(struct Missile * missiles, int moves, int i2c_fd){  // missile moves here
 	int i;
-	for(i=0; i<100; i++){
+	for(i=0; i<1; i++){
 		if(missiles[i].alive) // if the missile is valid one
 			missiles[i].y -= moves;  // the missile goes up 
 		if(missiles[i].y<=0){
@@ -320,11 +311,11 @@ int isSamepos(int ex, int ey, int mx, int my){
 	int dist_x = ex - mx;
 	int dist_y = ey*8 - my;
 	int dist_y2 = ey*8 - my - 4;
-	if(dist_x < 0 || (dist_y < 0 && dist_y2 < 0))
+	if(dist_x >= 0 && dist_x < 8 && ((dist_y >= 0 && dist_y <8) ||(dist_y2 >=0 && dist_y2 <8) ))
+		return 0;
+	else{
 		return 1;
-	if(dist_x > 8 || (dist_y > 8 && dist_y2 < 0))
-		return 1;
-	return 0;
+	}
 }
 
 
@@ -514,6 +505,13 @@ int main() {
         if (current_scene == 2){  // 실제 게임 화면
             write_str(i2c_fd, "Score ", 64-30, 0); // display score at upper screen
             write_str(i2c_fd, scorestr, 70, 0); //display score
+            if(!gpio_12_value && fire_switch_stat == 0){
+                fire_switch_stat = 1;
+                missile_launched(missiles, missile_index, player.x+5, player.y * 8);
+            }
+
+			missiles_move(missiles, 8, i2c_fd);
+			int gotscore = isbombed(enm, missiles, i2c_fd, screencleardata);
             if(!(!gpio_4_value && !gpio_27_value)){  // 움직였다면
                 if(!gpio_4_value){  // 좌로 움직였다면
                     if(player.x>=-4) player.x-=2;
@@ -524,13 +522,7 @@ int main() {
                     update_area(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+8,1);
                 }
             }
-            if(!gpio_12_value && fire_switch_stat == 0){
-                fire_switch_stat = 1;
-                missile_launched(missiles, missile_index, player.x+5, player.y * 8);
-            }
 
-			missiles_move(missiles, 8, i2c_fd);
-			int gotscore = isbombed(enm, missiles, i2c_fd, screencleardata);
 			score += gotscore;
 
 			update_area_missiles(i2c_fd, missiles);
