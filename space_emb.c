@@ -243,6 +243,12 @@ void handler (int sig) {
 }
 
 
+int pos_converter(int y){
+	int page = y / 8;
+	int pos = y % 8;
+}
+
+
 void missiles_launched(int x, int y){  // missile launching handler
 	missiles[missile_new].x = x;
 	missiles[missile_new].y = y;
