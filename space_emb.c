@@ -258,15 +258,14 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
  * @Author: Keonyoung Shim
  */
 
-int removetrace(int x, int y, int i2c_fd){
+void removetrace(int x, int y, int i2c_fd){
 	uint8_t *blank_buf =(uint8_t*)malloc(2*1);
 	blank_buf[0] = 0x00;
 	blank_buf[1] = 0x00;
 
-	update_area(i2c_fd, blank_buf, xx, y, 2, 1);
+	update_area(i2c_fd, blank_buf, x, y, 2, 1);
 
 	free(blank_buf);
-	return ret_val;
 }
 
 /*
