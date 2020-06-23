@@ -209,6 +209,8 @@ struct pagepos pos_converter(int y){
  */
 
 void update_area_missiles(int i2c_fd, struct Missile * missiles){
+	uint8_t *blank_buf =(uint8_t*)malloc(2*1);
+	blank_buf = 0x00;
 	for(int i=0; i<100; i++){
 		if(missiles[i].alive){  // missile valid 한 것만 처리
 			struct pagepos pgp = pos_converter(missiles[i].y);  // page 위치 찾기
@@ -223,6 +225,7 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
 
 				update_area(i2c_fd, part1_buf, missiles[i].x, pgp.page, 2, 1);
 				update_area(i2c_fd, part2_buf, missiles[i].x, pgp.page+1, 2, 1);
+				update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+2, 2, 1);
 
 				free(part1_buf);
 				free(part2_buf);
@@ -233,10 +236,12 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
 				buf[0] = base;
 				buf[1] = base;
 				update_area(i2c_fd, buf, missiles[i].x, pgp.page, 2, 1);
+				update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+1, 2, 1);
 				free(buf);
 			}
 		}
 	}
+	free(blank_buf);
 }
 
 
@@ -288,7 +293,7 @@ void missiles_move(struct Missile * missiles, int moves){  // missile moves here
 
 int isSamepos(int ex, int ey, int mx, int my){
 	int dist_x = ex - mx;
-	int dist_y = ey - my;
+	int dist_y = ey*8 - my;
 	if(dist_x < 0 || dist_y < 0)
 		return 1;
 	if(dist_x > 8 || dist_y > 8)
@@ -305,7 +310,7 @@ int isSamepos(int ex, int ey, int mx, int my){
  * @Author: Keonyoung Shim
  */
 
-int isbombed(struct enemies * enemy, struct Missile * missiles){
+int isbombed(struct enemies * enemy, struct Missile * missiles, int i2c_fd, uint8_t * screencleardata){
 	int enemies_len = 24;
 	int missiles_len = 100;
 	int ret_val = 0;
@@ -317,6 +322,7 @@ int isbombed(struct enemies * enemy, struct Missile * missiles){
 					if(isSamepos(enemy[i].x, enemy[i].y, missiles[j].x, missiles[j].y)){
 						enemy[i].alive = 0;
 						missiles[j].alive = 0;
+						update_area(i2c_fd, screencleardata, enemy[i].x, enemy[i].y, 12, 1);
 						ret_val++;
 						break;
 					}
@@ -502,7 +508,7 @@ int main() {
             }
 
 			missiles_move(missiles, 2);
-			int gotscore = isbombed(enm, missiles);
+			int gotscore = isbombed(enm, missiles, i2c_fd, screencleardata);
 			score += gotscore;
 
 			update_area_missiles(i2c_fd, missiles);
