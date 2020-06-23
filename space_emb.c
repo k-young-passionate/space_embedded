@@ -250,6 +250,24 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
 	free(blank_buf);
 }
 
+/*
+ * @Name: removetrace
+ * @Param: position
+ * @Return: void
+ * @Description: remove the trace 
+ * @Author: Keonyoung Shim
+ */
+
+int removetrace(int x, int y){
+	uint8_t *blank_buf =(uint8_t*)malloc(2*1);
+	blank_buf[0] = 0x00;
+	blank_buf[1] = 0x00;
+
+	update_area(i2c_fd, blank_buf, xx, y, 2, 1);
+
+	free(blank_buf);
+	return ret_val;
+}
 
 /*
  * @Name: missile_launched
@@ -282,9 +300,11 @@ void missiles_move(struct Missile * missiles, int moves){  // missile moves here
 	for(i=0; i<100; i++){
 		if(missiles[i].alive) // if the missile is valid one
 			missiles[i].y -= moves;  // the missile goes up 
-		if(missiles[i].y<=0)
+		if(missiles[i].y<=0){
 			missiles[i].alive = 0;  // it dies when it goes out of bound
+			removetrace(missiles[i].x, missiles[i].y/8);
 			continue;
+		}
 	}
 }
 
@@ -330,6 +350,7 @@ int isbombed(struct enemies * enemy, struct Missile * missiles, int i2c_fd, uint
 						enemy[i].alive = 0;
 						missiles[j].alive = 0;
 						update_area(i2c_fd, screencleardata, enemy[i].x, enemy[i].y, 12, 1);
+						removetrace(missiles[j].x, missiles[j].y/8);
 						ret_val++;
 						break;
 					}
