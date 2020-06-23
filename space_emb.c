@@ -228,7 +228,7 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
 					update_area(i2c_fd, part2_buf, missiles[i].x, pgp.page+1, 2, 1);
 				}
 				if(pgp.page<6){
-					update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+2, 2, 1);
+					update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+2, 1, 1);
 				}
 				free(part1_buf);
 				free(part2_buf);
@@ -240,7 +240,7 @@ void update_area_missiles(int i2c_fd, struct Missile * missiles){
 				buf[1] = base;
 				update_area(i2c_fd, buf, missiles[i].x, pgp.page, 2, 1);
 				if(pgp.page<7){
-					update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+1, 2, 1);
+					update_area(i2c_fd, blank_buf, missiles[i].x, pgp.page+1, 1, 1);
 				}
 				free(buf);
 			}
