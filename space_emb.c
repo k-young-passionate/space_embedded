@@ -181,70 +181,10 @@ void update_area_x_wrap(int i2c_fd,const uint8_t*data, int x,int y,int x_len,int
 	}
 }
 
-int i2c_fd;
-int player_alive = 1;
-
-struct enemies{
-    int type;
-    int x;
-    int y;
-    int alive; // 0 = dead, 1 = alive
-    uint8_t* data;
-} enm[32];
-
-struct ship{
-    int x;
-    int y;
-} player;
-
-void handler (int sig) {
-    int flag = 0; //used for make enemy move down
-    int dir = 1; //0 = left, 1 = right
-    if(player_alive){
-        while(1){
-            for(int i = 0; i < 32; i++){
-                if(!enm[i].alive) continue;
-                else{
-                    if(dir == 1 && enm[i].x == 120){
-                        flag = 1;
-                        dir = 0;
-                        break;
-                    }
-                    else if(dir == 0 && enm[i].x == 0){
-                        flag = 1;
-                        dir = 1;
-                        break;
-                    }
-                    else{
-
-                    }
-                }
-            }
-            if(flag){
-                flag = 0;
-                for(int i = 0; i < 32; i++){
-                    if(!enm[i].alive) continue;
-                    else{
-
-                    }
-                }
-            }
-        }   
-    }
-}
-
 
 /*
-struct missiles{
-	int x;
-	int y;
-	int alive;  // 0 dead, 1 alive
-} missiles[100];
 
-int missile_new = 0;
 */  // missile related code -> main 에 삽입 예정
-
-
 
 
 /*
@@ -343,11 +283,36 @@ int isSamepos(int ex, int ey, int mx, int my){
 	return 0;
 }
 
-
 int main() {
 
-    int current_scene = 1;  // 현재 상황
-    int scene_change = 1;  // used when situation change ex)main game->game over
+    int player_alive = 1;
+    int current_scene = 1;
+
+    struct enemies{
+        int x;
+        int y;
+        int alive; // 0 = dead, 1 = alive
+        uint8_t* data;
+    } enm[24];
+
+    struct ship{
+        int x;
+        int y;
+    } player;
+
+    struct missiles{
+        int x;
+	      int y;
+	      int alive;  // 0 dead, 1 alive
+    } missiles[100];
+
+    int missile_index = 0;  // missile array index
+  /*
+  *  milssile 함수 이용 시
+  *  missile_launched : missile을 발사해 시작 포지션에 넣어줌
+  *  missiles_move : 발사 된 missile을 이동시켜주고, 이동한 missile의 enemy 격추 시 handling 해줌
+  *  두 개만 이용하면 됨
+  */
     int score = 0;  // 점수
     char scorestr[10];  // used to make score string
 
@@ -370,7 +335,7 @@ int main() {
     int gpio_12_value; // fire switch
     int fire_switch_stat = 0;
 
-    i2c_fd = open("/dev/i2c-1",O_RDWR);
+    int i2c_fd = open("/dev/i2c-1",O_RDWR);
     if(i2c_fd < 0){
         printf("err opening device\n");
         return -1;
@@ -394,31 +359,56 @@ int main() {
     free(data); // ???
 
 	// player의 현재 위치
-    player.x = 64;
+    player.x = 59;
     player.y = 7;
 
     write_str(i2c_fd, "SPACE EMBEDDERS", 20, 1);
     write_str(i2c_fd, "Press fire key",23,6);
     write_str(i2c_fd, "to start",39,7);
 
-    uint8_t* shipdata = (uint8_t*) malloc((ship_WIDTH+2)*ship_HEIGHT);
 
-    shipdata[0] = 0x0;
-    shipdata[ship_WIDTH+2] = 0x0;
-    
+    uint8_t* shipdata = (uint8_t*) malloc((ship_WIDTH+8)*ship_HEIGHT);
+
+    for(int x = 0; x < 4; x++){
+        shipdata[0+x] = 0x0;
+        shipdata[ship_WIDTH+4+x] = 0x0;
+    }
     for(int x = 0; x < ship_WIDTH; x++){
-        shipdata[1+x] = ship[x];
+        shipdata[4+x] = ship[x];
     }
 
-    signal(SIGALRM, handler);
-    ualarm(20000,20000);
+    screencleardata = (uint8_t*) malloc(enemy_WIDTH*enemy_HEIGHT);
+    for(int i = 0; i < 8; i++){
+        screencleardata[i] = 0x0;
+    }
+
+    for(int i = 0; i < 24; i++){
+        enm[i].data = (uint8_t*) malloc((enemy_WIDTH+4)*enemy_HEIGHT);
+        if(i%2){
+            for(int j = 0; j < 8; j++){
+                enm[i].data[j+2] = enemy2[j];
+            }
+        }
+        else{
+            for(int j = 0; j < 8; j++){
+                enm[i].data[j+2] = enemy1[j];
+            }
+        }
+        enm[i].data[0] = 0x0;
+        enm[i].data[1] = 0x0;
+        enm[i].data[10] = 0x0;
+        enm[i].data[11] = 0x0;
+        enm[i].alive = 1;
+        enm[i].x = (i%8)*12 + 18;
+        enm[i].y = (23-i)/8 + 1;
+    }
 
     while(1){
+        int downflag = 0; // used for enemy moving downward
 		/* button 입력 받아오기 */
         get_gpio_input_value(gpio_ctr,4,&gpio_4_value);
         get_gpio_input_value(gpio_ctr,27,&gpio_27_value);
         get_gpio_input_value(gpio_ctr,12,&gpio_12_value);
-        if(!gpio_4_value && !gpio_27_value && !gpio_12_value) break;
         if(current_scene == 1 && !gpio_12_value){  // 처음 메뉴 화면
             fire_switch_stat = 1;  // missile 버튼 on
             current_scene = 2;  // 게임 화면 모드
@@ -438,20 +428,53 @@ int main() {
         if (current_scene == 2){  // 실제 게임 화면
             if(!(!gpio_4_value && !gpio_27_value)){  // 움직였다면
                 if(!gpio_4_value){  // 좌로 움직였다면
-                    if(player.x>0) player.x--;
-                    update_area_x_wrap(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+2,ship_HEIGHT);
+                    if(player.x>0) player.x-=4;
+                    update_area(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+8,ship_HEIGHT);
                 }
                 if(!gpio_27_value){ // 우로 움직였다면
-                    if(player.x < 120)player.x++;
-                    update_area_x_wrap(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+2,ship_HEIGHT);
+                    if(player.x < 120)player.x+=4;
+                    update_area(i2c_fd,shipdata,player.x,player.y,ship_WIDTH+8,ship_HEIGHT);
                 }
             }
             if(!gpio_12_value && fire_switch_stat == 0){  // missile을 쐈고, 불능 상태라면 ???? 맞나
                 fire_switch_stat = 1;  // missile 버튼 on
             }
+            //enemy position check to move down or side
+            for(int i = 0; i < 24; i++){
+                if(!enm[i].alive) continue;
+                if(dir == 1 && enm[i].x >= 116){
+                    downflag = 1;
+                }
+                else if(dir == 0 && enm[i].x <= 0){
+                    downflag = 1;
+                }
+            }
+            if(downflag){
+                if(dir == 0) dir = 1;
+                else if(dir == 1) dir = 0;
+                for(int i = 0; i < 24; i++){
+                    update_area(i2c_fd,screencleardata,enm[i].x, enm[i].y,12,1);
+                    enm[i].y++;
+                }
+                for(int i = 0; i < 24; i++){
+                    update_area(i2c_fd,enm[i].data,enm[i].x, enm[i].y,12,1);
+                }
+            }
+            else if(dir == 1){
+                for(int i = 0; i < 24; i++){
+                    if(i%8==0)update_area(i2c_fd,screencleardata,enm[i].x, enm[i].y,8,1);
+                    enm[i].x++;
+                    update_area(i2c_fd,enm[i].data,enm[i].x, enm[i].y,12,1);
+                }
+            }
+            else if(dir == 0){
+                for(int i = 0; i < 24; i++){
+                    enm[i].x--;
+                    update_area(i2c_fd,enm[i].data,enm[i].x, enm[i].y,12,1);
+                }
+            }
         }
         if(gpio_12_value && fire_switch_stat == 1) fire_switch_stat = 0;  // 미사일 못쏘는 상태
-		usleep(1000);  // 움직임의 순간적인 정지
     }
 
     free(shipdata);
